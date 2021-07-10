@@ -1,7 +1,7 @@
 git-tags
 ========
 
-> A git extension to print a detailed list of git tags.
+> A git extension to print a detailed list of tags.
 
 ```bash
 $ git tags

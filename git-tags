@@ -3,6 +3,10 @@
 """Print list of git tags with details"""
 
 import subprocess
+import argparse
+from sys import stderr
+
+__version__ = "0.1.0"
 
 def shell(*cmd):
     """Run the command in text mode and capture output, return CompletedProcess instance
@@ -23,8 +27,8 @@ def gettags():
     result = shell("git", "tag")
     return result.stdout.splitlines()
 
-def main():
-    """Print list of git tags including: tag, sha, date, annotation/message"""
+def git_tags(is_verbose, options):
+    """Construct and execute git command to print list of tags including: tag, sha, date, annotation/message"""
     tags = gettags()
     if not tags:
         return
@@ -46,14 +50,57 @@ def main():
         "for-each-ref",
         "--sort=-taggerdate",
         f"--format={fmt}",
+        *options,
         "refs/tags"
     ]
 
-    # for debugging
-    # print(*command, "\n")
+    if is_verbose:
+        print(">", *command, "\n", file=stderr)
 
     # run command
     subprocess.run(command)
+
+def parser():
+    """Return ArgumentParser object. Used by argparse-manpage and cli()"""
+    parser = argparse.ArgumentParser(
+        prog="git-tags",
+        description="A git extension to print a detailed list of tags.",
+        epilog="Remaining options are forwarded to git. See: git help for-each-ref"
+    )
+    parser.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
+    )
+
+    # --format flag and optional value
+    parser.add_argument(
+        "--format",
+        help=argparse.SUPPRESS,
+        default=False,
+        const=True,
+        nargs="?",
+    )
+
+    parser.add_argument(
+        "-V",
+        "--verbose",
+        action="store_true",
+        help="print git command"
+    )
+
+    return parser
+
+
+def main():
+    """Parse arguments and execute git command"""
+    args, options = parser().parse_known_args()
+
+    if args.format:
+        parser.error(f"argument unrecognized argument: --format")
+
+    git_tags(args.verbose, options)
 
 if __name__ == "__main__":
     main()
