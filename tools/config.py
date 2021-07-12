@@ -2,9 +2,10 @@
 
 from copy import deepcopy
 from pathlib import Path
+import re
 
 from poetry.core.pyproject.toml import PyProjectTOML
-from more_itertools import first_true
+from more_itertools import first_true, first
 
 from tools import abort
 
@@ -13,6 +14,9 @@ class Config():
     ROOTDIR = Path(__file__).parent.parent
     _poetry = None
     _url = None
+
+    """Author parsing pattern"""
+    author_regex: re.Pattern = re.compile(r'(?P<name>.+) <(?P<email>.+)>')
 
     """Used to store tool.poetry section of pyproject.toml """
     poetry = {}
@@ -47,10 +51,39 @@ class Config():
     @property
     def url(self):
         """Return the first stored url or first not null url"""
-        if self._url:
-            return self._url
+        if not self._url:
+            self._url = first_true(self.urls)
 
-        return first_true(self.urls)
+        return self._url
+
+    @property
+    def author(self):
+        """Return the first string in tool.poetry.authors"""
+        return first(self.get("tool", "poetry", "authors", default=[]), default="")
+
+    @property
+    def author_email(self):
+        """Return author email parsed from tool.poetry.authors"""
+        if not self.author:
+            return
+
+        match = self.author_regex.search(self.author)
+        if match:
+            return match.group("email")
+        else:
+            return " "
+
+    @property
+    def author_name(self):
+        """Return author name parsed from tool.poetry.authors"""
+        if not self.author:
+            return
+
+        match = self.author_regex.search(self.author)
+        if match:
+            return match.group("name")
+        else:
+            return self.author
 
     def __getattr__(self, attr):
         """Enable object.name access for attributes in tool.poetry section"""

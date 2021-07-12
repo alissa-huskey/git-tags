@@ -14,7 +14,8 @@ def main():
 
     cmd = Command(
         module="gittags",
-        author=first(cfg.get("tool", "poetry", "authors")),
+        author=cfg.author_name,
+        author_email=cfg.author_email,
         project_name=cfg.name,
         url=cfg.url,
         config=cfg,
