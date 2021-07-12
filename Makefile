@@ -18,6 +18,9 @@ build:       ## build package
 	@tools/mkman
 	@poetry build
 
+clean:       ## remove build files
+	@rm -rf dist
+
 help:        ## show this help screen
 	@echo $(NAME) Makefile
 	@echo
