@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+# create a new release at the current version
+
+main() {
+  git tag v$(poetry version -s)
+  git push --tags
+}
+
+main

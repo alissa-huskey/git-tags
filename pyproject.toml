@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "A git extension to print a detailed list of tags."
 authors = ["Alissa Huskey <alissa.huskey@gmail.com>"]
 license = "MIT"
-repository = "http://github.com:alissa-huskey/git-tags"
+repository = "https://github.com/alissa-huskey/git-tags"
 
 [tool.poetry.dependencies]
 python = "^3.8"
@@ -17,6 +17,8 @@ neovim = "^0.3.1"
 pylama = "^7.7.1"
 
 poetry-core = "^1.0.3"
+homebrew-pypi-poet = "^0.10.0"
+xdoctest = "^0.15.5"
 # [tool.poetry.scripts]
 
 [build-system]

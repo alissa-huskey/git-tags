@@ -1,0 +1,356 @@
+#!/usr/bin/env python
+
+"""Script to create homebrew formula"""
+
+import argparse
+import os
+from pathlib import Path
+from pprint import pprint
+import re
+from subprocess import run
+import sys
+
+from tools.config import Config
+from tools import abort
+
+class Resource():
+    """Wether the resource is in the file"""
+    included: bool = False
+
+    """List of strings representing the ruby resource block"""
+    lines: list
+
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+class Formula():
+    """Class for managing Homebrew formula
+
+    See Also
+    --------
+    https://docs.brew.sh/Python-for-Formula-Authors
+
+    """
+
+    """Homebrew tap"""
+    tap: str
+
+    """Input file"""
+    infile: Path
+
+    """Output file"""
+    outfile: Path
+
+    """Dict of resource objects"""
+    resources: dict
+
+    "Mapping of attribute names to line numbers"
+    attrs: dict
+
+    """Comments to strip, list of tuples containing lines at beginning and (optional) end of block"""
+    strip: list = [
+        (
+            "# Documentation: https://docs.brew.sh/Formula-Cookbook",
+            "# PLEASE REMOVE ALL GENERATED COMMENTS BEFORE SUBMITTING YOUR PULL REQUEST!",
+        ),
+        (
+            "    # ENV.deparallelize  # if your formula fails when building in parallel",
+            None,
+        ),
+        (
+            "    # `test do` will create, run in and delete a temporary directory.",
+            '    # executables being tested: `system "#{bin}/program", "do", "something"`.',
+        ),
+    ]
+
+    def __init__(self, cfg, infile=None, outfile=None, tap=None):
+        self.contents = {}
+        self.resources = {}
+        self._path = None
+        self.cfg = cfg
+        self.tap = tap
+
+        if infile:
+            self.infile = Path(infile)
+        else:
+            self.infile = self.path
+
+        if outfile:
+            self.outfile = Path(outfile)
+        else:
+            self.outfile = self.path
+
+        self.attrs = {
+            "desc": None,
+            "homepage": None,
+            "version": None,
+            "sha256": None,
+            "license": None,
+            "url": None,
+        }
+
+    @property
+    def python(self):
+        """Return python version"""
+        return re.search(r"(\d.\d)", self.cfg.python).group(1)
+
+    @property
+    def bakfile(self):
+        """Return path to packup file"""
+        name = self.infile.with_suffix(".bak.rb").name
+        return Path.cwd() / name
+
+    def backup(self):
+        """Create a backup of infile"""
+        if not self.infile.exists():
+            return
+
+        contents = self.infile.read_text()
+        if contents:
+            self.bakfile.write_text(contents)
+
+    def load(self):
+        """Parse the file contents"""
+        if self.infile.exists():
+            self.contents = self.infile.read_text().splitlines()
+
+        # load resources
+        resource = []
+        package = None
+
+        for num, line in enumerate(self.contents):
+            # when in a resource block, append lines to resource
+            if resource:
+                resource.append(line)
+
+                # at the end of the block, add to the resources list
+                # then reset resource
+                if line == "  end":
+                    self.resources[package] = Resource(included=True, lines=resource)
+                    package = None
+                    resource = []
+
+            # start of a resources block
+            if line.startswith("  resource"):
+                match = re.search(r'\s*resource "(?P<package>.+)" do', line)
+                if not match:
+                    abort(f"No match found for line: {line}")
+                package = match.group("package")
+                resource.append(line)
+
+            attrs = "|".join(self.attrs)
+            match = re.search(rf'  (?P<attr>{attrs}) "(?P<value>.*)"\s*', line)
+            if match:
+                attr = match.group("attr")
+                setattr(self, attr, match.group("value"))
+                self.attrs[attr] = num
+
+    @property
+    def path(self):
+        """Return path to formula file"""
+        cmd = run(["brew", "formula", cfg.name], text=True, capture_output=True)
+
+        if not self._path:
+            self._path = Path(cmd.stdout)
+        return self._path
+
+    @property
+    def tarball(self):
+        return f"https://github.com/alissa-huskey/git-tags/archive/refs/tags/v{self.cfg.version}.tar.gz"
+
+    def create(self):
+        """Initialize homebrew formula"""
+        command = [
+            "brew",
+            "create",
+            "--python",
+            "--set-license"
+        ] + self.tap_flags + [self.tarball]
+
+        run(command, env={**os.environ, "HOMEBREW_EDITOR": "echo"})
+
+    def has(self, package):
+        """Return True if resource is already included in resources or formula"""
+        return package in self.resources
+
+    def resource(self, package):
+        """Add resource if it does not already exist"""
+        if not self.has(package):
+            res = run(["poet", package], text=True, capture_output=True)
+            self.resources[package] = Resource(lines=res.stdout)
+
+    def compile(self):
+        """Modify contents to reflect state of self"""
+        self.compile_python()
+        self.compile_attrs()
+        self.strip_comments()
+        self.compile_resources()
+
+    def lineno(self, line):
+        """Return the line number of a particluar line or None"""
+        try:
+            return self.contents.index(line)
+        except ValueError:
+            return None
+
+    def compile_attrs(self):
+        """update attributes"""
+        # sort attributes in reverse order by line number, to ensure replacing
+        # existing lines before adding any new ones
+        attrs = dict(sorted(self.attrs.items(), key=lambda x: x[1] or 0, reverse=True))
+
+        last = None
+        for attr, idx in attrs.items():
+            value = getattr(self, attr, None)
+            if not value:
+                continue
+            line = f'  {attr} "{value}"'
+            if idx:
+                last = last or idx
+                self.contents[idx] = line
+            else:
+                last = (last or 0 ) + 1
+                self.attrs[attr] = last
+                self.contents.insert(last, line)
+
+        # remove version
+        # handles audit error: Stable: version x.x.x is redundant with version scanned from URL
+        idx = attrs["version"]
+        if idx:
+            self.contents.pop(idx)
+
+    def compile_python(self):
+        """Add specific Python version to dependency in contents"""
+        idx = self.lineno('  depends_on "python"')
+        if idx:
+            self.contents[idx] = f'  depends_on "python@{self.python}"'
+
+    def compile_resources(self):
+        """add resources to contents"""
+        idx = self.contents.index("  def install")
+        for resource in self.resources.values():
+            if not resource.included:
+                resource.included = True
+                self.contents.insert(idx, resource.lines)
+
+    def strip_comments(self):
+        """strip generated comments"""
+        for start_line, end_line in self.strip:
+            try:
+                _, from_idx, to_idx = self.block(start_line, end_line)
+            except ValueError:
+                continue
+
+            self.contents[from_idx:to_idx] = []
+
+    def __str__(self):
+        return "\n".join(self.contents) + "\n"
+
+    def save(self):
+        """Save contents of to file"""
+        self.backup()
+        self.outfile.write_text(str(self))
+
+    def block(self, start_line, end_line):
+        """Get block of lines from contents starting at start_line and ending at optional end_line
+        Returns
+        -------
+        (lines, start_idx, end_idx)
+
+        * lines (list): list of lines
+        * start_idx (int): index of start of block
+        * end_idx (int): index of end of block
+        """
+
+        start_slice = self.contents.index(start_line)
+        if end_line:
+            end_slice = self.contents.index(end_line, start_slice) + 1
+        else:
+            end_slice = start_slice + 1
+
+        return self.contents[start_slice: end_slice], start_slice, end_slice
+
+    def apply(self):
+        """Apply pyproject.toml config to formula"""
+        self.load()
+        self.homepage = self.cfg.url
+        self.version = self.cfg.version
+        self.desc = self.cfg.description
+        self.url = self.tarball
+        self.license = self.cfg.license
+
+        for dep in self.cfg.dependencies:
+            self.resource(dep)
+
+    @property
+    def tap_flags(self):
+        flags = []
+        if self.tap:
+            flags = ["--tap", self.tap]
+        return flags
+
+
+    def verify(self):
+        """Verify the formula"""
+        command = ["brew", "audit", "--new" ] + self.tap_flags + ["git-tags"]
+        res = run(command)
+        if res.returncode:
+            exit(res.returncode)
+
+    def generate(self):
+        """Generate the formula file"""
+        if not self.infile.exists():
+            self.create()
+
+        self.apply()
+        self.compile()
+
+def cli():
+    """Command line interface for script"""
+    parser = argparse.ArgumentParser(
+        description="Generate hombrew formula",
+    )
+    parser.add_argument(
+        "-i",
+        "--infile",
+        help="input file"
+    )
+    parser.add_argument(
+        "-o",
+        "--outfile",
+        help="output file"
+    )
+    parser.add_argument(
+        "-t",
+        "--tap",
+        help="homebrew tap"
+    )
+    parser.add_argument(
+        "-p",
+        "--preview",
+        action="store_true",
+        help="print preview of document"
+    )
+
+    args = parser.parse_args()
+
+    cfg = Config()
+    formula = Formula(
+        cfg,
+        infile=args.infile,
+        outfile=args.outfile,
+        tap=args.tap,
+    )
+    formula.generate()
+
+    if args.preview:
+        print(formula)
+    else:
+        formula.save()
+        formula.verify()
+
+if __name__ == "__main__":
+    cli()
+
+

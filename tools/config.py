@@ -34,6 +34,7 @@ class Config():
         self.dev_dependencies = self.get("tool", "poetry", "dev-dependencies",
                                          default={})
         self.build_system = self.get("tool", "poetry", "build-system", default={})
+        self.python = self.get("tool", "poetry", "dependencies", "python", default=None)
 
         if not self.toml.is_poetry_project():
             abort(f"Not a poetry project: {self.ROOTDIR}")
