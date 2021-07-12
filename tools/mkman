@@ -13,7 +13,7 @@ def main():
     cfg = Config()
 
     cmd = Command(
-        pyfile=cfg.name,
+        module="gittags",
         author=first(cfg.get("tool", "poetry", "authors")),
         project_name=cfg.name,
         url=cfg.url,

@@ -1,7 +1,3 @@
-#!/usr/bin/env python
-
-"""Print list of git tags with details"""
-
 import subprocess
 import argparse
 from sys import stderr
@@ -27,7 +23,7 @@ def gettags():
     result = shell("git", "tag")
     return result.stdout.splitlines()
 
-def git_tags(is_verbose, options):
+def execute(is_verbose, options):
     """Construct and execute git command to print list of tags including: tag, sha, date, annotation/message"""
     tags = gettags()
     if not tags:
@@ -93,14 +89,14 @@ def parser():
     return parser
 
 
-def main():
+def cli():
     """Parse arguments and execute git command"""
     args, options = parser().parse_known_args()
 
     if args.format:
         parser.error(f"argument unrecognized argument: --format")
 
-    git_tags(args.verbose, options)
+    execute(args.verbose, options)
 
 if __name__ == "__main__":
-    main()
+    cli()

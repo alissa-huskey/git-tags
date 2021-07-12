@@ -17,23 +17,26 @@ class Command():
     cfg = None
 
     """Used to store command line options"""
-    options = {}
+    options: dict
 
     """Mapping of argparse.dest to argparse.name"""
-    option_names = {}
+    option_names: dict
 
-    def __init__(self, **kwargs):
+    def __init__(self, outdir="share/man/man1", **kwargs):
         """Initialize argparse parser
 
         Keyword Arguments
         -----------------
-        * config (Config):
+        * config (Config): Config object
+        * outdir (str): output dir
         * kwargs: options to add
 
         """
 
         # initialize Config object
         self.cfg = kwargs.pop("config", Config())
+
+        self.outdir = outdir
 
         # initialize option_names dict
         self.option_names = {}
@@ -58,6 +61,11 @@ class Command():
         internal = self.parser.add_argument_group("mkman options")
         internal._group_actions.insert(0, help_arg)
         internal.add_argument(
+            "-d",
+            "--outdir",
+            help="directory of output file"
+        )
+        internal.add_argument(
             "-V",
             "--verbose",
             action="store_true",
@@ -76,7 +84,10 @@ class Command():
                 continue
             self.option_names[action.dest] = first(names).lstrip("-")
 
-        self.add("output", f"{self.cfg.name}.1", override=False)
+        outfile = f"{self.cfg.name}.1"
+        if self.outdir:
+            outfile = f"{self.outdir}/{outfile}"
+        self.add("output", outfile, override=False)
 
     def add(self, name, value, override=True):
         """Add option
