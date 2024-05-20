@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "git-tags"
-version = "0.1.0"
+version = "0.1.1"
 description = "A git extension to print a detailed list of tags."
 authors = ["Alissa Huskey <alissa.huskey@gmail.com>"]
 license = "MIT"
