@@ -1,67 +1,107 @@
-import subprocess
+"""git-tags module."""
+
 import argparse
+from functools import cached_property
 from sys import stderr
+
+from git import Git, Repo
+from more_itertools import flatten
+
+bp = breakpoint
 
 __version__ = "0.1.0"
 
-def shell(*cmd):
-    """Run the command in text mode and capture output, return CompletedProcess instance
-    raise CalledProcessError for non-zero exit code
-    """
-    result = subprocess.run(cmd, text=True, capture_output=True)
-    result.check_returncode()
-    return result
 
-def color(name, default="normal"):
-    """Return git config value for color.name or default"""
-    result = shell("git", "config", f"color.{name}")
-    value = result.stdout.strip() or default
-    return f"%(color:{value})"
+class GitTags():
+    """Construct the detailed git-tags output."""
 
-def gettags():
-    """Return the length of the longest tag"""
-    result = shell("git", "tag")
-    return result.stdout.splitlines()
+    def __init__(self, is_verbose, git_args):
+        """Create the object."""
+        self.is_verbose = is_verbose
+        self.git_args = git_args
 
-def execute(is_verbose, options):
-    """Construct and execute git command to print list of tags including: tag, sha, date, annotation/message"""
-    tags = gettags()
-    if not tags:
-        return
+    @cached_property
+    def git(self) -> Git:
+        """Return a Git object."""
+        return Git()
 
-    # length of longest tag
-    width = max(map(len, tags))
+    def color(self, field):
+        """Return the color for a git field."""
+        color = self.git.config(f"color.{field}")
+        return f"%(color:{color})"
 
-    # construct format string
-    fmt = (
-        color("decorate.tag") + f"%(align:{width},left)%(refname:short)%(end) "  + # tag
-        color("diff.meta") + "%(objectname:short)%(color:reset) "                  # SHA
-        "%(authordate:short)%(*authordate:short) "                                 # date
-        "%(subject)"                                                               # annotation/message
-    )
+    @cached_property
+    def repo(self) -> Repo:
+        """Return a Repo object."""
+        return Repo()
 
-    # construct command
-    command=[
-        "git",
-        "for-each-ref",
-        "--sort=-taggerdate",
-        f"--format={fmt}",
-        *options,
-        "refs/tags"
-    ]
+    @property
+    def tags(self) -> list[str]:
+        """Return a list of tag names."""
+        return [t.name for t in self.repo.tags]
 
-    if is_verbose:
-        print(">", *command, "\n", file=stderr)
+    @property
+    def width(self):
+        """Return the length of the longest tag."""
+        return max(map(len, self.tags))
 
-    # run command
-    subprocess.run(command)
+    @property
+    def format(self):
+        """Return the format string."""
+        fmt = {
+            "tag": (
+                self.color("decorate.tag"),
+                f"%(align:{self.width},left)%(refname:short)%(end) ",
+            ),
+            "SHA": (
+                self.color("diff.meta"),
+                "%(objectname:short)%(color:reset) ",
+            ),
+            "date": ("%(authordate:short)%(*authordate:short) ",),
+            "subject": ("%(subject)"),
+        }
+
+        text = "".join(flatten(fmt.values()))
+        return text
+
+    @property
+    def args(self):
+        """Return the CLI command to run."""
+        args = [
+            "--sort=-taggerdate",
+            f"--format={self.format}",
+            *self.git_args,
+            "refs/tags"
+        ]
+        return args
+
+    def display(self):
+        """Run the git command."""
+        if self.is_verbose:
+            print(
+                "git",
+                "for-each-ref",
+                *[repr(a) for a in self.args],
+                "\n",
+                file=stderr
+            )
+
+        output = self.git.for_each_ref(*self.args, "--color=always")
+        print(output)
+
 
 def parser():
-    """Return ArgumentParser object. Used by argparse-manpage and cli()"""
+    """Return ArgumentParser object.
+
+    Used by argparse-manpage and cli().
+    """
     parser = argparse.ArgumentParser(
         prog="git-tags",
         description="A git extension to print a detailed list of tags.",
-        epilog="Remaining options are forwarded to git. See: git help for-each-ref"
+        epilog=(
+            "Remaining options are forwarded to git. "
+            "See: git help for-each-ref"
+        )
     )
     parser.add_argument(
         "-v",
@@ -90,13 +130,15 @@ def parser():
 
 
 def cli():
-    """Parse arguments and execute git command"""
+    """Parse arguments and execute git command."""
     args, options = parser().parse_known_args()
 
     if args.format:
-        parser.error(f"argument unrecognized argument: --format")
+        parser.error("argument unrecognized argument: --format")
 
-    execute(args.verbose, options)
+    tags = GitTags(args.verbose, options)
+    tags.display()
+
 
 if __name__ == "__main__":
     cli()

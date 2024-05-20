@@ -11,6 +11,7 @@ include = ["share/man/man1/git-tags.1"]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
+gitpython = "^3.1.43"
 
 [tool.poetry.scripts]
 git-tags = "gittags:cli"

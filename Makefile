@@ -6,6 +6,7 @@ PIP ?= ~/.asdf/shims/pip
 ## nodoc
 NAME = git-tags
 MAKEFILE = $(word 1, $(MAKEFILE_LIST))  ## default: Makefile
+MSG =
 ## end-nodoc
 
 install:  clean build   ## help: install package locally
@@ -29,11 +30,7 @@ test:        ## help: run tests
 	@xdoctest -m tools
 	@xdoctest -m gittags
 
-_bump:
-	poetry version patch
-	sed -i'' -Ee "s/^__version__ = .*$$/__version__ = '$$(poetry version -s)'/" gittags/__init__.py
-
-bump:  | _bump tag      ## help: bump version
+bump:        ## help: bump version
 	poetry version patch
 	sed -i'' -Ee "s/^__version__ = .*$$/__version__ = '$$(poetry version -s)'/" gittags/__init__.py
 

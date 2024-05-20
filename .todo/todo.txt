@@ -1,0 +1,3 @@
+2024-05-20 @cli add --color/--no-color option
+2024-05-20 @cli respect terminal color capabilities
+2024-05-20 @cli respect COLOR/NOCOLOR env vars
