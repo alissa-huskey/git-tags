@@ -1,47 +1,63 @@
 PREFIX ?= ~/.local
 MANDIR ?= $(PREFIX)/share/man
-PIP ?= ~/.pyenv/shims/pip
+PIP ?= ~/.asdf/shims/pip
 
+## these lines are included in help
 ## nodoc
 NAME = git-tags
-MAKEFILE = $(word 1, $(MAKEFILE_LIST))
+MAKEFILE = $(word 1, $(MAKEFILE_LIST))  ## default: Makefile
 ## end-nodoc
 
-install:  build   ## install package
+install:  clean build   ## help: install package locally
 	@install share/man/man1/$(NAME).1 $(MANDIR)/man1/$(NAME).1
-	@$(PIP) install . --disable-pip-version-check
+	@$(PIP) install dist/*.whl --disable-pip-version-check
 
-uninstall:   ## uninstall package
+uninstall:   ## help: uninstall package
 	@rm -f $(MANDIR)/man1/$(NAME).1
 	@$(PIP) uninstall --yes $(NAME) -qq
 
-reinstall: | uninstall install ## reinstall package
+reinstall: | uninstall install ## help: reinstall package
 
-build:       ## build package
+build:       ## help: build package
 	@tools/mkman
 	@poetry build
 
-clean:       ## remove build files
+clean:       ## help: remove build files
 	@rm -rf dist
 
-test:        ## run tests
+test:        ## help: run tests
 	@xdoctest -m tools
 	@xdoctest -m gittags
 
-help:        ## show this help screen
+_bump:
+	poetry version patch
+	sed -i'' -Ee "s/^__version__ = .*$$/__version__ = '$$(poetry version -s)'/" gittags/__init__.py
+
+bump:  | _bump tag      ## help: bump version
+	poetry version patch
+	sed -i'' -Ee "s/^__version__ = .*$$/__version__ = '$$(poetry version -s)'/" gittags/__init__.py
+
+tag:                    ## help: [MSG=""] create tag at HEAD
+	message="$(MSG)" ; git tag -f "v$$(poetry version -s)" $${message:+-m "$$message"}
+
+help:        ## help: show this help screen
 	@echo $(NAME) Makefile
 	@echo
 	@echo  "  usage: make [ <target> ] [ <OPTION>=<VALUE> ]"
 	@echo
 	@echo "Targets:"
+	@echo 
+	@sed -nEe '/^[a-z]+:.*## help:/ { s/^([a-z]+):.+ ## help:/\x1b[36m\1\x1b[0m\t/ p ; }' $(MAKEFILE) \
+		| sort | column -ts $$'\t'
 	@echo
-	@awk -F'[ ]*(##|:|[|])[ ]*' '/^\w.+:\s*[|].+##/ { printf "  \033[36m%s\033[0m\t%s\n", $$1, $$4 } ; /^\w.+:[^|]+##/ { printf "  \033[36m%s\033[0m\t%s\n", $$1, $$3 }' $(MAKEFILE) | sort | column -ts $$'\t'
 	@echo
 	@echo "Options:"
 	@echo
-	@awk -F'[ ]*(=|?=|:=)[ ]*' '/## nodoc/,/## end-nodoc/ {next} ; /^[A-Z_]+ .+/ { printf "  \033[36m%s\033[0m\t%s\n", $$1, $$2 }' $(MAKEFILE) | sort | column -ts $$'\t'
+	@sed -nEe '/^## nodoc/,/^## end-nodoc/ { /^##/ !{ s,^([A-Z]+),\x1b[36m\1\x1b[0m, ; /##/ { s/=.+## default:/=/ ; } ; p ; } ; } ;' \
+		$(MAKEFILE) | sort | column -ts $$'\t'
+	@echo
 	@echo
 
 
-.PHONY: build clean help install reinstall test uninstall cmd
+.PHONY: build bump clean help install reinstall tag test uninstall cmd
 .DEFAULT_GOAL := help

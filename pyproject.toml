@@ -10,21 +10,29 @@ include = ["share/man/man1/git-tags.1"]
 
 
 [tool.poetry.dependencies]
-python = "^3.8"
-more-itertools = "^8.8.0"
-argparse-manpage = "^1.5"
-
-[tool.poetry.dev-dependencies]
-ipython = "^7.25.0"
-neovim = "^0.3.1"
-pylama = "^7.7.1"
-
-poetry-core = "^1.0.3"
-homebrew-pypi-poet = "^0.10.0"
-xdoctest = "^0.15.5"
+python = ">=3.10,<4.0"
 
 [tool.poetry.scripts]
 git-tags = "gittags:cli"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.4.2"
+flake8 = "^7.0.0"
+flake8-black = "^0.3.6"
+flake8-docstrings = "^1.7.0"
+flake8-isort = "^6.1.1"
+ipython = "^8.24.0"
+isort = "^5.13.2"
+pdbpp = "^0.10.3"
+pycodestyle = "^2.11.1"
+pylama = "^8.4.1"
+pynvim = "^0.5.0"
+pylint = "^3.2.2"
+pytest = "^8.2.1"
+xdoctest = "^1.1.3"
+poetry-core = "^1.9.0"
+argparse-manpage = {extras = ["setuptools"], version = "^4.5"}
+more-itertools = "^10.2.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
