@@ -1,0 +1,3 @@
+x 2024-05-20 2024-05-20 @docs add changelog
+x 2024-05-20 2024-05-20 @docs add status to readme
+x 2024-05-20 2024-05-20 @docs add install directions to readme

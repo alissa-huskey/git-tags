@@ -68,10 +68,11 @@ class GitTags():
     def args(self):
         """Return the CLI command to run."""
         args = [
+            "--color=always",
             "--sort=-taggerdate",
             f"--format={self.format}",
             *self.git_args,
-            "refs/tags"
+            "refs/tags",
         ]
         return args
 
@@ -86,7 +87,7 @@ class GitTags():
                 file=stderr
             )
 
-        output = self.git.for_each_ref(*self.args, "--color=always")
+        output = self.git.for_each_ref(*self.args)
         print(output)
 
 
@@ -97,10 +98,13 @@ def parser():
     """
     parser = argparse.ArgumentParser(
         prog="git-tags",
-        description="A git extension to print a detailed list of tags.",
+        description=(
+            "A git extension to print a list of tags "
+            "with detailed information.",
+        ),
         epilog=(
             "Remaining options are forwarded to git. "
-            "See: git help for-each-ref"
+            "See: git help for-each-ref."
         )
     )
     parser.add_argument(

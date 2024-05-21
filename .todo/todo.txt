@@ -1,3 +1,7 @@
 2024-05-20 @cli add --color/--no-color option
 2024-05-20 @cli respect terminal color capabilities
 2024-05-20 @cli respect COLOR/NOCOLOR env vars
+2024-05-20 @bug fix sorting
+2024-05-20 @bug fix error when there are no tags
+2024-05-20 @bug fix git-tags --help
+2024-05-20 @housekeeping add a stable or latest tag @maybe

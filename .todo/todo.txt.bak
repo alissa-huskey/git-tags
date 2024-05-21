@@ -1,2 +1,10 @@
 2024-05-20 @cli add --color/--no-color option
 2024-05-20 @cli respect terminal color capabilities
+2024-05-20 @cli respect COLOR/NOCOLOR env vars
+2024-05-20 fix sorting
+2024-05-20 @bug fix error when there are no tags
+x 2024-05-20 2024-05-20 @docs add changelog
+x 2024-05-20 2024-05-20 @docs add status to readme
+2024-05-20 @bug fix git-tags --help
+x 2024-05-20 2024-05-20 @docs add install directions to readme
+2024-05-20 @housekeeping add a stable or latest tag @maybe
